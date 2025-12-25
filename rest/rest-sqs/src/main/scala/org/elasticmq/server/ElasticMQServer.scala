@@ -92,7 +92,8 @@ class ElasticMQServer(config: ElasticMQServerConfig) extends Logging {
         config.restSqs.sqsLimits,
         config.awsRegion,
         config.awsAccountId,
-        queueConfigStore
+        queueConfigStore,
+        queueEventListener = None
       ).start()
 
       val _: Http.ServerBinding = server.waitUntilStarted()
