@@ -185,6 +185,7 @@ lazy val restSqs: Project = (project in file("rest/rest-sqs"))
         pekkoStreams,
         sprayJson,
         pekkoHttpSprayJson,
+        "software.amazon.awssdk" % "auth" % "2.25.60",
         pekkoTestkit,
         pekkoHttpTestkit,
         CrossVersion.partialVersion(scalaVersion.value) match {

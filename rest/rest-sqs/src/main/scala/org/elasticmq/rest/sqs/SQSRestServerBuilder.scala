@@ -11,8 +11,10 @@ import org.elasticmq.actor.QueueManagerActor
 import org.elasticmq.metrics.QueuesMetrics
 import org.elasticmq.rest.sqs.Constants._
 import org.elasticmq.rest.sqs.XmlNsVersion.extractXmlNs
+import org.elasticmq.rest.sqs.config.SQSAuthConfig
 import org.elasticmq.rest.sqs.directives.{
   AWSProtocolDirectives,
+  AWSSignatureV4AuthenticationDirective,
   AnyParamDirectives,
   ElasticMQDirectives,
   UnmatchedActionRoutes
@@ -50,6 +52,7 @@ object SQSRestServerBuilder
       StrictSQSLimits,
       "elasticmq",
       "000000000000",
+      None,
       None
     )
 
@@ -63,6 +66,7 @@ case class TheSQSRestServerBuilder(
     sqsLimits: Limits,
     _awsRegion: String,
     _awsAccountId: String,
+    awsAuthConfig: Option[SQSAuthConfig],
     queueEventListener: Option[ActorRef]
 ) extends Logging {
 
@@ -120,6 +124,12 @@ case class TheSQSRestServerBuilder(
   def withAWSAccountId(accountId: String) =
     this.copy(_awsAccountId = accountId)
 
+  /** @param authConfig
+    *   Configuration for AWS Signature v4 authentication
+    */
+  def withAWSAuthConfig(authConfig: SQSAuthConfig) =
+    this.copy(awsAuthConfig = Some(authConfig))
+
   /** @param _queueEventListener
     *   Optional listener of changes in queues and messages
     */
@@ -140,6 +150,9 @@ case class TheSQSRestServerBuilder(
 
     val currentServerAddress =
       new AtomicReference[NodeAddress](theServerAddress)
+    
+    val rootConfig = ConfigFactory.load()
+    val theAuthConfig = awsAuthConfig.getOrElse(SQSAuthConfig.from(rootConfig))
 
     val env = new QueueManagerActorModule
       with QueueURLModule
@@ -151,6 +164,7 @@ case class TheSQSRestServerBuilder(
       with CreateQueueDirectives
       with DeleteQueueDirectives
       with AWSProtocolDirectives
+      with AWSSignatureV4AuthenticationDirective
       with QueueAttributesDirectives
       with ListQueuesDirectives
       with SendMessageDirectives
@@ -186,7 +200,7 @@ case class TheSQSRestServerBuilder(
 
       lazy val awsRegion: String = _awsRegion
       lazy val awsAccountId: String = _awsAccountId
-
+      lazy val authConfig: SQSAuthConfig = theAuthConfig
     }
 
     import env._
@@ -229,19 +243,21 @@ case class TheSQSRestServerBuilder(
     }
 
     val sqsRoute =
-      extractXmlNs { (_version: XmlNsVersion) =>
-        implicit val version: XmlNsVersion = _version
-        extractProtocol { (_protocol: AWSProtocol) =>
-          implicit val protocol: AWSProtocol = _protocol
-          handleServerExceptions(protocol) {
-            handleRejectionsWithSQSError(protocol) {
-              anyParamsMap(protocol) { p =>
-                val marshallerDependencies = MarshallerDependencies(protocol, version)
-                if (config.debug) {
-                  logRequestResult("") {
-                    rawRoutes(p)(marshallerDependencies)
-                  }
-                } else rawRoutes(p)(marshallerDependencies)
+      verifyAWSSignatureV4(authConfig) {
+        extractXmlNs { (_version: XmlNsVersion) =>
+          implicit val version: XmlNsVersion = _version
+          extractProtocol { (_protocol: AWSProtocol) =>
+            implicit val protocol: AWSProtocol = _protocol
+            handleServerExceptions(protocol) {
+              handleRejectionsWithSQSError(protocol) {
+                anyParamsMap(protocol) { p =>
+                  val marshallerDependencies = MarshallerDependencies(protocol, version)
+                  if (config.debug) {
+                    logRequestResult("") {
+                      rawRoutes(p)(marshallerDependencies)
+                    }
+                  } else rawRoutes(p)(marshallerDependencies)
+                }
               }
             }
           }
