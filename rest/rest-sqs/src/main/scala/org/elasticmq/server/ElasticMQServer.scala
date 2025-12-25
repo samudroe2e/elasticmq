@@ -95,7 +95,7 @@ class ElasticMQServer(config: ElasticMQServerConfig) extends Logging {
         config.restSqs.sqsLimits,
         config.awsRegion,
         config.awsAccountId,
-        authConfig,
+        Some(authConfig),
         queueEventListener = queueConfigStore
       ).start()
 
