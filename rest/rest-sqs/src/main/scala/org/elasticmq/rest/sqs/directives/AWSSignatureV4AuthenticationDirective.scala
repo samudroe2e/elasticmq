@@ -1,7 +1,7 @@
 package org.elasticmq.rest.sqs.directives
 
-import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken, GenericHttpCredentials}
-import org.apache.pekko.http.scaladsl.server.{Directive0, AuthenticationFailedRejection}
+import org.apache.pekko.http.scaladsl.model.headers.{Authorization, GenericHttpCredentials}
+import org.apache.pekko.http.scaladsl.server.{AuthenticationFailedRejection, Directive0}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.model.headers.HttpChallenges
 import org.elasticmq.rest.sqs.config.SQSAuthConfig

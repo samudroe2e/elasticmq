@@ -82,6 +82,8 @@ class ElasticMQServer(config: ElasticMQServerConfig) extends Logging {
   ): Option[SQSRestServer] = {
     if (config.restSqs.enabled) {
 
+      val authConfig = SQSAuthConfig.from(config.restSqs.config)
+
       val server = TheSQSRestServerBuilder(
         Some(actorSystem),
         Some(queueManagerActor),
