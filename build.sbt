@@ -189,7 +189,7 @@ lazy val restSqs: Project = (project in file("rest/rest-sqs"))
         pekkoTestkit,
         pekkoHttpTestkit,
         config,
-        "com.github.pureconfig" %% "pureconfig-generic-auto" % "0.17.8",
+        "com.github.pureconfig" %% "pureconfig-generic" % "0.17.8",
         CrossVersion.partialVersion(scalaVersion.value) match {
           case Some((3, _)) => scala3Async
           case _            => scala2Async
