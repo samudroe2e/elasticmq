@@ -8,6 +8,6 @@ case class SQSAuthConfig(enabled: Boolean, accessKey: String, secretKey: String,
 
 object SQSAuthConfig {
   def from(config: Config): SQSAuthConfig = {
-    ConfigSource.fromConfig(config).at("auth").loadOrThrow[SQSAuthConfig]
+    ConfigSource.fromConfig(config).at("rest-sqs.auth").loadOrThrow[SQSAuthConfig]
   }
 }
