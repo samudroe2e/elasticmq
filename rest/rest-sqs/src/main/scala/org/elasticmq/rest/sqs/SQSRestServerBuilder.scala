@@ -243,7 +243,7 @@ case class TheSQSRestServerBuilder(
           implicit val protocol: AWSProtocol = _protocol
           handleServerExceptions(protocol) {
             handleRejectionsWithSQSError(protocol) {
-              verifyAWSAccessKeyId(protocol) {
+              verifyAWSCredentials(protocol) {
                 anyParamsMap(protocol) { p =>
                   val marshallerDependencies = MarshallerDependencies(protocol, version)
                   if (config.debug) {
