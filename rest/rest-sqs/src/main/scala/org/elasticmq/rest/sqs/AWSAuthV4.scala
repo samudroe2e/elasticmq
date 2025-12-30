@@ -16,19 +16,18 @@
 
 package org.elasticmq.rest.sqs
 import org.apache.pekko.http.scaladsl.model.HttpRequest
-import org.elasticmq.rest.sqs.directives.DirectiveUtils
-import org.joda.time.DateTime
-import org.joda.time.format.ISODateTimeFormat
 
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 trait AWSAuthV4Module {
   private val ALGORITHM = "AWS4-HMAC-SHA256"
-  private val BASIC_DATE_FORMAT = ISODateTimeFormat.basicDate()
-  private val X_AMZ_DATE_FORMAT = ISODateTimeFormat.basicDateTimeNoMillis()
+  private val BASIC_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd")
+  private val X_AMZ_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
 
   private def sign(key: Array[Byte], msg: String): Array[Byte] = {
     val mac = Mac.getInstance("HmacSHA256")
@@ -65,10 +64,10 @@ trait AWSAuthV4Module {
   }
 
   object StringToSignBuilder {
-    def forAWS4(canonicalRequest: String, requestTimestamp: DateTime, region: String, service: String): String = {
+    def forAWS4(canonicalRequest: String, requestTimestamp: ZonedDateTime, region: String, service: String): String = {
       val CREDS_SCOPE_TERMINATOR = "aws4_request"
-      val timestamp = requestTimestamp.toString(X_AMZ_DATE_FORMAT)
-      val date = requestTimestamp.toString(BASIC_DATE_FORMAT)
+      val timestamp = requestTimestamp.format(X_AMZ_DATE_FORMAT)
+      val date = requestTimestamp.format(BASIC_DATE_FORMAT)
       val scope = s"$date/$region/$service/$CREDS_SCOPE_TERMINATOR"
 
       val hashedRequest = sha256Hex(canonicalRequest.getBytes)
@@ -82,16 +81,16 @@ trait AWSAuthV4Module {
       service: String
   ) {
 
-    def getSignatureKey(date: DateTime): Array[Byte] = {
+    def getSignatureKey(date: ZonedDateTime): Array[Byte] = {
       var key = ("AWS4" + awsSecretKey).getBytes(StandardCharsets.UTF_8)
-      key = sign(key, date.toString(BASIC_DATE_FORMAT))
+      key = sign(key, date.format(BASIC_DATE_FORMAT))
       key = sign(key, region)
       key = sign(key, service)
       sign(key, "aws4_request")
     }
 
     def calculateSignature(
-        requestTimestamp: DateTime,
+        requestTimestamp: ZonedDateTime,
         stringToSign: String
     ): String = {
       val signingKey = getSignatureKey(requestTimestamp)

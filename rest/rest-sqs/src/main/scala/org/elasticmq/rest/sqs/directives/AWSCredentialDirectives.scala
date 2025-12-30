@@ -1,21 +1,22 @@
 package org.elasticmq.rest.sqs.directives
 
-import org.apache.pekko.http.scaladsl.model.HttpMethods
+import org.apache.pekko.http.scaladsl.model.{HttpMethods, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.directives.Credentials
 import org.apache.pekko.http.scaladsl.server.{Directive, Directive0, Directives}
 import org.elasticmq.rest.sqs.{AWSAuthV4Module, AWSCredentialsModule, AWSProtocol, SQSException}
-import org.joda.time.DateTime
+import org.elasticmq.rest.sqs.directives.Util.parseDate
 
+import scala.concurrent.duration.DurationInt
 import scala.util.matching.Regex
 
-trait AWSCredentialDirectives extends Directives with AWSAuthV4Module with DirectiveUtils {
+trait AWSCredentialDirectives extends Directives with AWSAuthV4Module {
   this: AWSCredentialsModule with ElasticMQDirectives with AnyParamDirectives =>
 
   private val accessKeyRegex = "Credential=([^/]+)/".r
 
   def verifyAWSCredentials(protocol: AWSProtocol): Directive0 = {
-    if (awsCredentials.secretKey.isDefined) {
-      verifyAWSSignature(awsCredentials.accessKey, awsCredentials.secretKey.get)
+    if (awsCredentials.secretKey.nonEmpty) {
+      verifyAWSSignature(awsCredentials.accessKey, awsCredentials.secretKey)
     } else {
       verifyAWSAccessKeyId(protocol)
     }
@@ -55,7 +56,7 @@ trait AWSCredentialDirectives extends Directives with AWSAuthV4Module with Direc
   private val AwsPattern = aws4authorizationHeaderRegex.pattern
 
   def verifyAWSSignature(accessKey: String, secretKey: String): Directive0 = {
-    extractStrictEntity.flatMap { entity =>
+    extractStrictEntity(1.second).flatMap { entity =>
       extractRequest.flatMap { req =>
         req.method match {
           case HttpMethods.POST =>
@@ -64,7 +65,7 @@ trait AWSCredentialDirectives extends Directives with AWSAuthV4Module with Direc
               case Some(header) =>
                 val amzDate =
                   req.headers.find(_.is("x-amz-date")).map(_.value()).getOrElse(req.headers.find(_.is("date")).get.value())
-                val requestTimestamp = new DateTime(amzDate)
+                val requestTimestamp = parseDate(amzDate)
 
                 val matcher = AwsPattern.matcher(header.value())
                 if (matcher.matches()) {
