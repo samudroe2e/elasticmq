@@ -185,6 +185,7 @@ lazy val restSqs: Project = (project in file("rest/rest-sqs"))
         pekkoStreams,
         sprayJson,
         pekkoHttpSprayJson,
+        "joda-time" % "joda-time" % "2.12.7",
         pekkoTestkit,
         pekkoHttpTestkit,
         CrossVersion.partialVersion(scalaVersion.value) match {
