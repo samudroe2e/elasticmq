@@ -10,6 +10,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.security.MessageDigest
 import scala.collection.immutable.Seq
+import scala.concurrent.duration._
 
 trait AWSCredentialDirectives extends Directives {
   this: AWSCredentialsModule with ElasticMQDirectives =>
@@ -43,7 +44,7 @@ trait AWSCredentialDirectives extends Directives {
       signature: String
   ): Directive0 =
     extractRequestEntity.flatMap { entity =>
-      onSuccess(entity.toStrict(5000)).flatMap { strict =>
+      onSuccess(entity.toStrict(5.seconds)).flatMap { strict =>
         val bodyBytes = strict.data.toArray
         val bodyHash  = sha256Hex(bodyBytes)
 
