@@ -25,7 +25,7 @@ class ElasticMQServerConfig(config: Config) extends Logging {
   // Optionally expose the REST SQS interface
 
   class RestSqsConfiguration {
-    private val subConfig = config.getConfig("rest-sqs")
+    val subConfig = config.getConfig("rest-sqs")
     val enabled = subConfig.getBoolean("enabled")
     val bindPort = subConfig.getInt("bind-port")
     val bindHostname = subConfig.getString("bind-hostname")

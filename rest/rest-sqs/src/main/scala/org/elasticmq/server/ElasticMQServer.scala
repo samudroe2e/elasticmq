@@ -9,6 +9,7 @@ import org.elasticmq.actor.queue.QueueEvent
 import org.elasticmq.actor.reply._
 import org.elasticmq.persistence.file.ConfigBasedQueuePersistenceActor
 import org.elasticmq.persistence.sql.SqlQueuePersistenceActor
+import org.elasticmq.rest.sqs.config.SQSAuthConfig
 import org.elasticmq.rest.sqs.{SQSRestServer, TheSQSRestServerBuilder}
 import org.elasticmq.rest.stats.{StatisticsRestServer, TheStatisticsRestServerBuilder}
 import org.elasticmq.server.config.ElasticMQServerConfig
@@ -82,6 +83,8 @@ class ElasticMQServer(config: ElasticMQServerConfig) extends Logging {
   ): Option[SQSRestServer] = {
     if (config.restSqs.enabled) {
 
+      val authConfig = SQSAuthConfig.from(config.restSqs.subConfig)
+
       val server = TheSQSRestServerBuilder(
         Some(actorSystem),
         Some(queueManagerActor),
@@ -92,7 +95,8 @@ class ElasticMQServer(config: ElasticMQServerConfig) extends Logging {
         config.restSqs.sqsLimits,
         config.awsRegion,
         config.awsAccountId,
-        queueConfigStore
+        Some(authConfig),
+        queueEventListener = queueConfigStore
       ).start()
 
       val _: Http.ServerBinding = server.waitUntilStarted()
