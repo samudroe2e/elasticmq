@@ -52,7 +52,7 @@ trait AWSCredentialDirectives extends Directives {
               "UNSIGNED-PAYLOAD"
             else sha256Hex(bodyBytes)
         val canonicalRequest = buildCanonicalRequest(req, signedHeaders, bodyHash)
-        val stringToSign     = buildStringToSign(date, region, service, canonicalRequest)
+        val stringToSign = buildStringToSign(req, region, service, canonicalRequest)
         val computedSig      = sign(awsCredentials.secretKey, date, region, service, stringToSign)
 
         if (computedSig == signature) pass else completeInvalid()
@@ -80,13 +80,22 @@ trait AWSCredentialDirectives extends Directives {
     s"$method\n$canonicalUri\n$canonicalQuery\n$canonicalHeaders\n$signedHeaders\n$payloadHash"
   }
 
-  private def buildStringToSign(date: String, region: String, service: String, canonical: String): String = {
-    val amzDate = req.headers.find(_.name == "X-Amz-Date").map(_.value).getOrElse("")
-    val dateOnly = amzDate.take(8)
-    val dateTimeLong = amzDate
-    val scope = s"$dateOnly/$region/$service/$aws4Request"
-    s"AWS4-HMAC-SHA256\n$dateTimeLong\n$scope\n${sha256Hex(canonical.getBytes("UTF-8"))}"
-  }
+  private def buildStringToSign(
+    req: HttpRequest,
+    region: String,
+    service: String,
+    canonical: String
+): String = {
+  val amzDate = req.headers
+    .find(_.name.equalsIgnoreCase("X-Amz-Date"))
+    .map(_.value)
+    .getOrElse("")
+
+  val dateOnly = amzDate.take(8)
+  val scope = s"$dateOnly/$region/$service/$aws4Request"
+
+  s"AWS4-HMAC-SHA256\n$amzDate\n$scope\n${sha256Hex(canonical.getBytes("UTF-8"))}"
+}
 
   private def sign(secret: String, date: String, region: String, service: String, data: String): String = {
     def hmac(key: Array[Byte], data: String): Array[Byte] = {
