@@ -46,8 +46,11 @@ trait AWSCredentialDirectives extends Directives {
     extractRequestEntity.flatMap { entity =>
       onSuccess(entity.toStrict(5.seconds)).flatMap { strict =>
         val bodyBytes = strict.data.toArray
-        val bodyHash  = sha256Hex(bodyBytes)
-
+        val bodyHash =
+            if (req.headers.exists(_.name == "X-Amz-Content-Sha256") &&
+                req.headers.exists(_.value == "UNSIGNED-PAYLOAD"))
+              "UNSIGNED-PAYLOAD"
+            else sha256Hex(bodyBytes)
         val canonicalRequest = buildCanonicalRequest(req, signedHeaders, bodyHash)
         val stringToSign     = buildStringToSign(date, region, service, canonicalRequest)
         val computedSig      = sign(awsCredentials.secretKey, date, region, service, stringToSign)
@@ -71,18 +74,17 @@ trait AWSCredentialDirectives extends Directives {
     val canonicalQuery = uri.rawQueryString.getOrElse("")
 
     val signedHeaderList = signedHeaders.split(";").toList
-    val canonicalHeaders = signedHeaderList
-      .flatMap(h => req.headers.find(_.name.equalsIgnoreCase(h)).map(h -> _.value.toLowerCase))
-      .sortBy(_._1)
-      .map { case (k, v) => s"${k.toLowerCase}:${v.trim}\n" }
-      .mkString
+    val normalizedHeaders = req.headers.map(h => h.name.toLowerCase -> h.value.trim).toMap
+    val canonicalHeaders = signedHeaderList.map(h => s"$h:${normalizedHeaders.getOrElse(h, "")}\n").mkString
 
     s"$method\n$canonicalUri\n$canonicalQuery\n$canonicalHeaders\n$signedHeaders\n$payloadHash"
   }
 
   private def buildStringToSign(date: String, region: String, service: String, canonical: String): String = {
-    val dateTimeLong = date + "T000000Z" // no timestamp → assume midnight
-    val scope        = s"$date/$region/$service/$aws4Request"
+    val amzDate = req.headers.find(_.name == "X-Amz-Date").map(_.value).getOrElse("")
+    val dateOnly = amzDate.take(8)
+    val dateTimeLong = amzDate
+    val scope = s"$dateOnly/$region/$service/$aws4Request"
     s"AWS4-HMAC-SHA256\n$dateTimeLong\n$scope\n${sha256Hex(canonical.getBytes("UTF-8"))}"
   }
 
